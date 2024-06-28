@@ -38,6 +38,24 @@ std::function<bool( const item & )> basic_item_filter( std::string filter )
                     return lcmatch( mat.first->name(), filter );
                 } );
             };
+        // perishable
+        case 'p':
+            return [filter](const item& i) {
+                if (i.goes_bad()) {
+                    float spoil_multiplier = 1.0f;
+                    item* parent = i.find_parent(i);
+                    if (parent) {
+                        const item_pocket* parent_pocket = parent->contained_where(i);
+                        if (parent_pocket) {
+                            spoil_multiplier = parent_pocket->spoil_multiplier();
+                        }
+                    }
+                    if (spoil_multiplier > 0.0f) {
+                        return true;
+                    }
+                }
+                return false;
+            };
         // qualities
         case 'q':
             return [filter]( const item & i ) {
