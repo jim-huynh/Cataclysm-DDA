@@ -111,6 +111,8 @@ static const itype_id fuel_type_animal( "animal" );
 static const itype_id itype_foodperson_mask( "foodperson_mask" );
 static const itype_id itype_foodperson_mask_on( "foodperson_mask_on" );
 
+static const flag_id json_flag_TWO_WAY_RADIO( "TWO_WAY_RADIO" );
+
 static const skill_id skill_firstaid( "firstaid" );
 
 static const skill_id skill_speech( "speech" );
@@ -441,6 +443,7 @@ enum npc_chat_menu {
     NPC_CHAT_GUARD,
     NPC_CHAT_MOVE_TO_POS,
     NPC_CHAT_FOLLOW,
+    NPC_CHAT_FOLLOW_ALL,
     NPC_CHAT_AWAKE,
     NPC_CHAT_MOUNT,
     NPC_CHAT_DISMOUNT,
@@ -457,6 +460,21 @@ enum npc_chat_menu {
     NPC_CHAT_ANIMAL_VEHICLE_STOP_FOLLOW,
     NPC_CHAT_COMMAND_MAGIC_VEHICLE_FOLLOW,
     NPC_CHAT_COMMAND_MAGIC_VEHICLE_STOP_FOLLOW,
+    NPC_CHAT_WORK_ORDERS,
+    NPC_CHAT_WORK_ORDERS_DO_MINING,
+    NPC_CHAT_WORK_ORDERS_DO_BUILDING,
+    NPC_CHAT_WORK_ORDERS_DO_BUTCHER,
+    NPC_CHAT_WORK_ORDERS_DO_DISASSEMBLE,
+    NPC_CHAT_WORK_ORDERS_DO_FARMING,
+    NPC_CHAT_WORK_ORDERS_DO_SORTING,
+    NPC_CHAT_WORK_ORDERS_DO_STOP_ACTIVITY,
+    NPC_CHAT_WORK_ORDERS_FOLLOW,
+    NPC_CHAT_CAMP_WORK_ORDER,
+    NPC_CHAT_IDLE_CAMP_WORK_ORDER,
+    NPC_CHAT_AWAKE_IDLE_CAMP_WORK_ORDER,
+    NPC_CHAT_AWAKE_WORK_ORDERS,
+    NPC_CHAT_CAMP_HERE,
+    NPC_CHAT_STOP_ACTIVITY,
     NPC_CHAT_ACTIVITIES,
     NPC_CHAT_ACTIVITIES_MOVE_LOOT,
     NPC_CHAT_ACTIVITIES_BUTCHERY,
@@ -750,6 +768,125 @@ static int npc_activities_menu()
     return nmenu.ret;
 }
 
+static void npc_temp_work_orders_menu( const std::vector<npc *> &npc_list, avatar &u )
+{
+    if( npc_list.empty() ) {
+        return;
+    }
+    uilist nmenu;
+
+    std::string yell_msg;
+    std::string message;
+    std::string selected_npc;
+    Character &player_character = get_player_character();
+    bool everyone_has_radio = player_character.has_item_with_flag( json_flag_TWO_WAY_RADIO, true );
+    bool everyone_can_hear_you = true;
+
+    std::vector<npc *> target_npcs;
+    const int npc_count = npc_list.size();
+    const int npcselect = npc_select_menu( npc_list, _( "Who should perform the work?" ) );
+    if( npcselect < 0 ) {
+        return;
+    }
+
+    if( npcselect == npc_count ) {
+        selected_npc = "Everyone";
+        target_npcs = npc_list;
+    } else {
+        npc *np = npc_list[npcselect];
+        target_npcs.push_back( np );
+        selected_npc = np->name_and_activity();
+    }
+
+    nmenu.reset();
+    nmenu.text = _( "Issue what work order?" );
+    nmenu.desc_enabled = true;
+    nmenu.addentry( NPC_CHAT_DONE, true, 'd', _( "Done issuing orders" ) );
+    nmenu.addentry( NPC_CHAT_WORK_ORDERS_FOLLOW, true, 'f', _( "Follow me" ) );
+    nmenu.addentry( NPC_CHAT_WORK_ORDERS_DO_MINING, true, 'm', _( "Go mine" ) );
+    nmenu.addentry( NPC_CHAT_WORK_ORDERS_DO_BUILDING, true, 'b', _( "Go build" ) );
+    nmenu.addentry( NPC_CHAT_WORK_ORDERS_DO_BUTCHER, true, 'B', _( "Go butcher" ) );
+    nmenu.addentry( NPC_CHAT_WORK_ORDERS_DO_DISASSEMBLE, true, 'c', _( "Go disassemble" ) );
+    nmenu.addentry( NPC_CHAT_WORK_ORDERS_DO_FARMING, true, 'F', _( "Go farm" ) );
+    nmenu.addentry( NPC_CHAT_WORK_ORDERS_DO_SORTING, true, 's', _( "Go sort loot" ) );
+    nmenu.addentry( NPC_CHAT_AWAKE, true, 'W', _( "Stay awake" ) );
+    nmenu.addentry( NPC_CHAT_CLEAR_OVERRIDES, true, 'C', _( "Clear overrides" ) );
+    nmenu.addentry( NPC_CHAT_WORK_ORDERS_DO_STOP_ACTIVITY, true, 'S', _( "Stop your activity" ) );
+    nmenu.query();
+
+    for( npc *p : target_npcs ) {
+        everyone_has_radio = everyone_has_radio && p->has_item_with_flag( json_flag_TWO_WAY_RADIO, true );
+        everyone_can_hear_you = everyone_can_hear_you && p->can_hear( u.pos(), u.volume );
+
+        switch( nmenu.ret ) {
+            case NPC_CHAT_WORK_ORDERS_DO_SORTING:
+                talk_function::sort_loot( *p );
+                yell_msg = string_format( _( "%s go sort loot!" ), selected_npc );
+                break;
+            case NPC_CHAT_WORK_ORDERS_DO_MINING:
+                talk_function::do_mining( *p );
+                yell_msg = string_format( _( "%s go mine!" ), selected_npc );
+                break;
+            case NPC_CHAT_WORK_ORDERS_DO_BUILDING:
+                talk_function::do_construction( *p );
+                yell_msg = string_format( _( "%s go build!" ), selected_npc );
+                break;
+            case NPC_CHAT_WORK_ORDERS_DO_BUTCHER:
+                talk_function::do_butcher( *p );
+                yell_msg = string_format( _( "%s go butcher!" ), selected_npc );
+                break;
+            case NPC_CHAT_WORK_ORDERS_DO_DISASSEMBLE:
+                talk_function::do_disassembly( *p );
+                yell_msg = string_format( _( "%s go disassemble!" ), selected_npc );
+                break;
+            case NPC_CHAT_WORK_ORDERS_DO_FARMING:
+                talk_function::do_farming( *p );
+                yell_msg = string_format( _( "%s go farm!" ), selected_npc );
+                break;
+            case NPC_CHAT_AWAKE:
+                talk_function::wake_up( *p );
+                yell_msg = string_format( _( "%s stay awake!" ), selected_npc );
+                break;
+            case NPC_CHAT_CLEAR_OVERRIDES:
+                talk_function::clear_overrides( *p );
+                yell_msg = string_format( _( "%s clear overrides!" ), selected_npc );
+                break;
+            case NPC_CHAT_WORK_ORDERS_DO_STOP_ACTIVITY:
+                if( p->mission == NPC_MISSION_ACTIVITY ) {
+                    talk_function::revert_activity( *p );
+                }
+                yell_msg = string_format( _( "%s stop what you're doing!" ), selected_npc );
+                break;
+            case NPC_CHAT_WORK_ORDERS_FOLLOW:
+                if( p->mission == NPC_MISSION_ACTIVITY ) {
+                    talk_function::revert_activity( *p );
+                }
+                talk_function::stop_guard( *p );
+                talk_function::follow( *p );
+                yell_msg = string_format( _( "%s follow me!" ), selected_npc );
+                break;
+            default:
+                break;
+        }
+    }
+
+    if( !yell_msg.empty() ) {
+        message = string_format( _( "\"%s\"" ), yell_msg );
+    }
+
+    if( !message.empty() ) {
+        if( everyone_has_radio ) {
+            add_msg( _( "You radio in %s" ), message );
+        } else {
+            add_msg( _( "You yell %s" ), message );
+            u.shout( string_format( _( "%s yelling %s" ), u.disp_name(), message ), true );
+
+            if( !everyone_can_hear_you ) {
+                add_msg( _( "You radio to those who are far away %s" ), message );
+            }
+        }
+    }
+}
 static void tell_veh_stop_following()
 {
     Character &player_character = get_player_character();
@@ -811,6 +948,7 @@ void game::chat()
 {
     Character &player_character = get_player_character();
     int volume = player_character.get_shout_volume();
+    bool u_has_radio = player_character.has_item_with_flag( json_flag_TWO_WAY_RADIO, true );
 
     const std::vector<Creature *> available = get_creatures_if( [&]( const Creature & guy ) {
         // TODO: Get rid of the z-level check when z-level vision gets "better"
@@ -821,13 +959,23 @@ void game::chat()
     } );
     const int available_count = available.size();
     const std::vector<npc *> followers = get_npcs_if( [&]( const npc & guy ) {
-        return guy.is_player_ally() && guy.is_following() && guy.can_hear( u.pos(), volume );
+        return guy.is_player_ally() && guy.is_following() && ( guy.can_hear( u.pos(), volume ) ||
+                ( !guy.is_deaf() && u_has_radio && guy.has_item_with_flag( json_flag_TWO_WAY_RADIO, true ) ) );
     } );
     const int follower_count = followers.size();
+
+    const std::vector<npc *> awake_followers = get_npcs_if( [&]( const npc & guy ) {
+        return guy.is_player_ally() && guy.is_following() && !guy.in_sleep_state() &&
+               ( guy.can_hear( u.pos(), volume ) ||
+                 ( !guy.is_deaf() && u_has_radio && guy.has_item_with_flag( json_flag_TWO_WAY_RADIO, true ) ) );
+    } );
+    const int awake_follower_count = awake_followers.size();
+
     const std::vector<npc *> guards = get_npcs_if( [&]( const npc & guy ) {
         return guy.mission == NPC_MISSION_GUARD_ALLY &&
                guy.companion_mission_role_id != "FACTION_CAMP" &&
-               guy.can_hear( u.pos(), volume );
+               ( guy.can_hear( u.pos(), volume ) ||
+                 ( !guy.is_deaf() && u_has_radio && guy.has_item_with_flag( json_flag_TWO_WAY_RADIO, true ) ) );
     } );
     const int guard_count = guards.size();
 
@@ -836,6 +984,36 @@ void game::chat()
                guy.companion_mission_role_id != "FACTION CAMP";
     } );
     const int available_for_activities_count = available_for_activities.size();
+
+    const std::vector<npc *> ally = get_npcs_if( [&]( const npc & guy ) {
+        return guy.is_player_ally() &&
+               ( guy.can_hear( u.pos(), volume ) ||
+                 ( !guy.is_deaf() && u_has_radio && guy.has_item_with_flag( json_flag_TWO_WAY_RADIO, true ) ) );
+    } );
+    const int ally_count = ally.size();
+    const std::vector<npc *> camp_workers = get_npcs_if( [&]( const npc & guy ) {
+        return guy.assigned_camp && ( guy.can_hear( u.pos(), volume ) ||
+                                      ( !guy.is_deaf() && u_has_radio && guy.has_item_with_flag( json_flag_TWO_WAY_RADIO, true ) ) );
+    } );
+    const int camp_worker_count = camp_workers.size();
+    const std::vector<npc *> idle_camp_workers = get_npcs_if( [&]( const npc & guy ) {
+        return guy.assigned_camp && guy.mission == NPC_MISSION_GUARD_ALLY &&
+               ( guy.can_hear( u.pos(), volume ) ||
+                 ( !guy.is_deaf() && u_has_radio && guy.has_item_with_flag( json_flag_TWO_WAY_RADIO, true ) ) );
+    } );
+    const int idle_camp_worker_count = idle_camp_workers.size();
+    const std::vector<npc *> awake_idle_camp_workers = get_npcs_if( [&]( const npc & guy ) {
+        return guy.assigned_camp && guy.mission == NPC_MISSION_GUARD_ALLY && !guy.in_sleep_state() &&
+               ( guy.can_hear( u.pos(), volume ) ||
+                 ( !guy.is_deaf() && u_has_radio && guy.has_item_with_flag( json_flag_TWO_WAY_RADIO, true ) ) );
+    } );
+    const int awake_idle_camp_worker_count = awake_idle_camp_workers.size();
+
+    const std::vector<npc *> non_camp_ally = get_npcs_if( [&]( const npc & guy ) {
+        return guy.is_player_ally() && !guy.assigned_camp && ( guy.can_hear( u.pos(), volume ) ||
+                ( !guy.is_deaf() && u_has_radio && guy.has_item_with_flag( json_flag_TWO_WAY_RADIO, true ) ) );
+    } );
+    const int non_camp_ally_count = non_camp_ally.size();
 
     if( player_character.has_trait( trait_PROF_FOODP ) &&
         !( player_character.is_wearing( itype_foodperson_mask ) ||
@@ -919,12 +1097,42 @@ void game::chat()
         nmenu.addentry( NPC_CHAT_ANIMAL_VEHICLE_STOP_FOLLOW, true, 'S',
                         _( "Whistle at your animals pulling vehicles to stop following you." ) );
     }
+    if( !ally.empty() ) {
+        nmenu.addentry( NPC_CHAT_FOLLOW_ALL, true, 'F', ally_count == 1 ?
+                        string_format( _( "Tell %s to follow" ), ally.front()->name_and_activity() ) :
+                        _( "Tell someone to follow…" )
+                      );
+    }
+
     if( !guards.empty() ) {
         nmenu.addentry( NPC_CHAT_FOLLOW, true, 'f', guard_count == 1 ?
                         string_format( _( "Tell %s to follow" ), guards.front()->get_name() ) :
                         _( "Tell someone to follow…" )
                       );
     }
+
+    if( !idle_camp_workers.empty() ) {
+        nmenu.addentry( NPC_CHAT_IDLE_CAMP_WORK_ORDER, true, 'c', idle_camp_worker_count == 1 ?
+                        string_format( _( "Tell idle camp worker %s to..." ),
+                                       idle_camp_workers.front()->name_and_activity() ) :
+                        _( "Tell an idle camp worker to…" )
+                      );
+    }
+    if( !awake_idle_camp_workers.empty() ) {
+        nmenu.addentry( NPC_CHAT_AWAKE_IDLE_CAMP_WORK_ORDER, true, 'c', awake_idle_camp_worker_count == 1 ?
+                        string_format( _( "Tell awake idle camp worker %s to..." ),
+                                       awake_idle_camp_workers.front()->name_and_activity() ) :
+                        _( "Tell an awake idle camp worker to…" )
+                      );
+    }
+    if( !camp_workers.empty() ) {
+        nmenu.addentry( NPC_CHAT_CAMP_WORK_ORDER, true, 'c', camp_worker_count == 1 ?
+                        string_format( _( "Tell camp worker %s to..." ),
+                                       camp_workers.front()->name_and_activity() ) :
+                        _( "Tell a camp worker to…" )
+                      );
+    }
+
     if( !followers.empty() ) {
         bool enable_seminar = !player_character.has_effect( effect_asked_to_train );
         nmenu.addentry( NPC_CHAT_START_SEMINAR, enable_seminar, 'T',
@@ -944,8 +1152,19 @@ void game::chat()
                         _( "Tell everyone on your team to prepare for danger" ) );
         nmenu.addentry( NPC_CHAT_CLEAR_OVERRIDES, true, 'r',
                         _( "Tell everyone on your team to relax (Clear Overrides)" ) );
+        nmenu.addentry( NPC_CHAT_CAMP_HERE, true, 'C', _( "Tell everyone on your team to camp here" ) );
         nmenu.addentry( NPC_CHAT_ORDERS, true, 'o', _( "Tell everyone on your team to temporarily…" ) );
+        nmenu.addentry( NPC_CHAT_WORK_ORDERS, true, 'O', _( "Tell everyone on your team to perform…" ) );
     }
+    if( !awake_followers.empty() ) {
+        nmenu.addentry( NPC_CHAT_AWAKE_WORK_ORDERS, true, 'O',
+                        _( "Tell every awake person on your team to perform…" ) );
+    }
+    if( !non_camp_ally.empty() ) {
+        nmenu.addentry( NPC_CHAT_STOP_ACTIVITY, true, 'S',
+                        _( "Tell everyone not at camp to stop working" ) );
+    }
+
     std::string message;
     std::string yell_msg;
     std::string emote_msg;
@@ -1099,7 +1318,7 @@ void game::chat()
             break;
         }
         case NPC_CHAT_FOLLOW: {
-            const int npcselect = npc_select_menu( guards, _( "Who should follow you?" ) );
+            const int npcselect = npc_select_menu( guards, _( "Which guard should follow you?" ) );
             if( npcselect < 0 ) {
                 return;
             }
@@ -1111,6 +1330,24 @@ void game::chat()
             } else {
                 talk_function::stop_guard( *guards[npcselect] );
                 yell_msg = string_format( _( "Follow me, %s!" ), guards[npcselect]->get_name() );
+            }
+            break;
+        }
+        case NPC_CHAT_FOLLOW_ALL: {
+            const int npcselect = npc_select_menu( ally, _( "Who should follow you?" ) );
+            if( npcselect < 0 ) {
+                return;
+            }
+            if( npcselect == ally_count ) {
+                for( npc *them : ally ) {
+                    talk_function::stop_guard( *them );
+                    talk_function::follow( *them );
+                }
+                yell_msg = _( "Everyone follow me!" );
+            } else {
+                talk_function::stop_guard( *ally[npcselect] );
+                talk_function::follow( *ally[npcselect] );
+                yell_msg = string_format( _( "Follow me, %s!" ), ally[npcselect]->get_name() );
             }
             break;
         }
@@ -1149,6 +1386,12 @@ void game::chat()
                 talk_function::clear_overrides( *p );
             }
             yell_msg = _( "As you were." );
+            break;
+        case NPC_CHAT_CAMP_HERE:
+            for( npc *p : followers ) {
+                talk_function::assign_camp( *p );
+            }
+            yell_msg = _( "Everybody join this camp here." );
             break;
         case NPC_CHAT_ORDERS:
             npc_temp_orders_menu( followers );
@@ -1248,6 +1491,27 @@ void game::chat()
             }
             break;
         }
+        case NPC_CHAT_WORK_ORDERS:
+            npc_temp_work_orders_menu( followers, u );
+            break;
+        case NPC_CHAT_AWAKE_WORK_ORDERS:
+            npc_temp_work_orders_menu( awake_followers, u );
+            break;
+        case NPC_CHAT_IDLE_CAMP_WORK_ORDER:
+            npc_temp_work_orders_menu( idle_camp_workers, u );
+            break;
+        case NPC_CHAT_AWAKE_IDLE_CAMP_WORK_ORDER:
+            npc_temp_work_orders_menu( awake_idle_camp_workers, u );
+            break;
+        case NPC_CHAT_CAMP_WORK_ORDER:
+            npc_temp_work_orders_menu( camp_workers, u );
+            break;
+        case NPC_CHAT_STOP_ACTIVITY:
+            for( npc *p : non_camp_ally ) {
+                talk_function::revert_activity( *p );
+            }
+            yell_msg = _( "Everybody not at camp, stop working." );
+            break;
         default:
             return;
     }
@@ -3945,7 +4209,6 @@ talk_effect_fun_t::func f_transform_radius( const JsonObject &jo, std::string_vi
                 tm.load( project_to<coords::sm>( target_pos - point{ radius, radius} ), false );
                 tm.transform_radius( ter_furn_transform_id( transform.evaluate( d ) ), radius, target_pos );
             }
-
         }
     };
 }

@@ -9568,6 +9568,17 @@ units::energy Character::consume_ups( units::energy qty, const int radius )
     return wanted_qty - qty;
 }
 
+units::energy Character::consume_bionic_power( units::energy qty )
+{
+    const units::energy wanted_qty = qty;
+
+    units::energy bio = std::min(get_power_level(), qty);
+    mod_power_level(-bio);
+    qty -= std::min(qty, bio);
+
+    return wanted_qty - qty;
+}
+
 std::list<item> Character::use_charges( const itype_id &what, int qty, const int radius,
                                         const std::function<bool( const item & )> &filter, bool in_tools )
 {
@@ -9601,9 +9612,20 @@ std::list<item> Character::use_charges( const itype_id &what, int qty, const int
         return qty > 0 ? VisitResponse::NEXT : VisitResponse::ABORT;
     } );
 
+    bool has_tool_with_Bionic_Power = false;
+    // Detection of Bionic Powered tool
+    inv.visit_items( [ &what, &qty, &has_tool_with_Bionic_Power, &filter]( item * e, item * ) {
+        if ( filter( *e ) && e->typeId() == what && e->has_flag( flag_USES_BIONIC_POWER ) ) {
+            has_tool_with_Bionic_Power = true;
+            return VisitResponse::ABORT;
+        }
+        return qty > 0 ? VisitResponse::NEXT : VisitResponse::ABORT;
+    } );
+
     if( radius >= 0 ) {
         get_map().use_charges( pos(), radius, what, qty, return_true<item>, nullptr, in_tools );
     }
+
     if( qty > 0 ) {
         visit_items( [this, &what, &qty, &res, &del, &filter, &in_tools]( item * e, item * ) {
             if( e->use_charges( what, qty, res, pos(), filter, this, in_tools ) ) {
@@ -9619,6 +9641,9 @@ std::list<item> Character::use_charges( const itype_id &what, int qty, const int
 
     if( has_tool_with_UPS ) {
         consume_ups( units::from_kilojoule( static_cast<std::int64_t>( qty ) ), radius );
+    }
+    else if (has_tool_with_Bionic_Power) {
+        consume_bionic_power(units::from_kilojoule(qty));
     }
 
     return res;

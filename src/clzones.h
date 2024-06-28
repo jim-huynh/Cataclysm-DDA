@@ -618,6 +618,9 @@ class zone_manager
             const tripoint_abs_ms &where, int radius, bool npc_search,
             const faction_id &fac = your_fac ) const;
 
+        std::unordered_set<tripoint> get_sleep_zones( const tripoint_abs_ms &where,
+                int radius, const faction_id &fac ) const;
+
         // 'direct' access to zone_manager::zones, giving direct access was nono
         std::vector<ref_zone_data> get_zones( const faction_id &fac = your_fac );
         std::vector<ref_const_zone_data> get_zones( const faction_id &fac = your_fac ) const;

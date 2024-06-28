@@ -503,7 +503,7 @@ float npc::evaluate_character( const Character &candidate, bool my_gun, bool ene
         }
         candidate_health *= std::max( 1.0f - bleed_intensity / 10.0f, 0.25f );
         add_msg_debug( debugmode::DF_NPC_COMBATAI,
-                       "<color_red>%s is bleeeeeeding…</color>, intensity %i", candidate.disp_name(), bleed_intensity );
+                       "<color_red>%s is bleeeeeeding�</color>, intensity %i", candidate.disp_name(), bleed_intensity );
     }
     if( !enemy ) {
         if( candidate_gun || ( is_player_ally() && candidate.is_avatar() ) ) {
@@ -609,7 +609,7 @@ float npc::evaluate_self( bool my_gun )
         }
         mem_combat.my_health *= std::max( 1.0f - bleed_intensity / 10.0f, 0.25f );
         add_msg_debug( debugmode::DF_NPC_COMBATAI,
-                       "<color_red>%s is bleeeeeeding…</color>, intensity %i", name, bleed_intensity );
+                       "<color_red>%s is bleeeeeeding�</color>, intensity %i", name, bleed_intensity );
         if( mem_combat.my_health < 0.25f ) {
             mem_combat.panic += 1;
         }
@@ -1642,7 +1642,9 @@ void npc::execute_action( npc_action action )
             if( is_walking_with() ) {
                 complain_about( "napping", 30_minutes, chat_snippets().snip_warn_sleep.translated() );
             }
+
             update_path( best_spot );
+
             // TODO: Handle empty path better
             if( best_spot == pos_bub() || path.empty() ) {
                 move_pause();
@@ -3281,6 +3283,11 @@ bool npc::find_job_to_perform()
 
 void npc::worker_downtime()
 {
+    if( !path.empty() ) {
+        move_to_next();
+        return;
+    }
+
     map &here = get_map();
     creature_tracker &creatures = get_creature_tracker();
     // are we already in a chair

@@ -1538,8 +1538,15 @@ static std::vector<std::tuple<tripoint_bub_ms, itype_id, int>> requirements_map(
     // will be filtered for amounts/charges afterwards.
     for( const tripoint_bub_ms &point_elem : pickup_task ? loot_spots : combined_spots ) {
         std::map<itype_id, int> temp_map;
+        bool can_hold_loot_here = here.can_put_items_ter_furn( point_elem );
+
         for( const item &stack_elem : here.i_at( point_elem ) ) {
             for( std::vector<item_comp> &elem : req_comps ) {
+                // if this is not a valid location for items, so we can skip it since it cannot hold the component we're looking for.
+                if( !can_hold_loot_here ) {
+                    continue;
+                }
+
                 for( item_comp &comp_elem : elem ) {
                     if( comp_elem.type == stack_elem.typeId() ) {
                         // if its near the work site, we can remove a count from the requirements.
@@ -1907,7 +1914,7 @@ static bool fetch_activity(
                         continue;
                     }
                     item leftovers = it;
-                    if( pickup_count != 1 && it.count_by_charges() ) {
+                    if( it.count_by_charges() ) {
                         // Reinserting leftovers happens after item removal to avoid stacking issues.
                         leftovers.charges = it.charges - pickup_count;
                         if( leftovers.charges > 0 ) {
@@ -1923,7 +1930,7 @@ static bool fetch_activity(
                             const std::string item_name = it.tname();
                             add_msg( _( "%1$s picks up a %2$s." ), you.disp_name(), item_name );
                         } else {
-                            add_msg( _( "%s picks up several items." ),  you.disp_name() );
+                            add_msg( _( "%s picks up several items." ), you.disp_name() );
                         }
                     }
                     items_there.erase( item_iter );
@@ -2008,7 +2015,7 @@ void activity_on_turn_move_loot( player_activity &act, Character &you )
         //num_processed
         act.values.push_back( 0 );
     }
-    int &num_processed = act.values[ 0 ];
+    int &num_processed = act.values[0];
 
     map &here = get_map();
     const tripoint_abs_ms abspos = you.get_location();
@@ -2671,7 +2678,8 @@ static std::unordered_set<tripoint_abs_ms> generic_multi_activity_locations(
         } else //  Exclude activities that can't have multiple characters working on the same tile.
             if( act_id == ACT_MULTIPLE_CHOP_TREES ||
                 act_id == ACT_MULTIPLE_CONSTRUCTION ||
-                act_id == ACT_MULTIPLE_MINE ) {
+                act_id == ACT_MULTIPLE_MINE ||
+                act_id == ACT_MULTIPLE_FARM ) {
                 bool skip = false;
 
                 for( const npc &guy : g->all_npcs() ) {
@@ -2957,8 +2965,8 @@ static requirement_check_result generic_multi_activity_check_requirement(
                     for( const tripoint_bub_ms &point_elem :
                          here.points_in_radius( src_loc, /*radius=*/PICKUP_RANGE - 1, /*radiusz=*/0 ) ) {
                         // we don't want to place the components where they could interfere with our ( or someone else's ) construction spots
-                        if( !you.sees( point_elem ) || ( std::find( local_src_set.begin(), local_src_set.end(),
-                                                         point_elem ) != local_src_set.end() ) || !here.can_put_items_ter_furn( point_elem ) ) {
+                        if( ( std::find( local_src_set.begin(), local_src_set.end(),
+                                         point_elem ) != local_src_set.end() ) || !here.can_put_items_ter_furn( point_elem ) ) {
                             continue;
                         }
                         candidates.push_back( point_elem );
@@ -3145,7 +3153,7 @@ static bool generic_multi_activity_do(
                     const recipe &r = ( elem.typeId() == itype_disassembly ) ? elem.get_making() :
                                       recipe_dictionary::get_uncraft( elem.typeId() );
                     int const qty = std::max( 1, elem.typeId() == itype_disassembly ? elem.get_making_batch_size() :
-                                              elem.charges );
+                                              elem.count_by_charges() ? 1 : elem.charges );
                     player_activity act = player_activity( disassemble_activity_actor( r.time_to_craft_moves( you,
                                                            recipe_time_flag::ignore_proficiencies ) * qty ) );
                     // TODO: fix point types
@@ -3237,6 +3245,11 @@ bool generic_multi_activity_handler( player_activity &act, Character &you, bool 
         }
         activity_reason_info act_info = can_do_activity_there( activity_to_restore, you,
                                         src_loc, ACTIVITY_SEARCH_DISTANCE );
+
+        if( act_info.reason == do_activity_reason::ALREADY_DONE ) {
+            continue;
+        }
+
         // see activity_handlers.h enum for requirement_check_result
         const requirement_check_result req_res = generic_multi_activity_check_requirement(
                     you, activity_to_restore, act_info, src, src_loc, src_set, check_only );
