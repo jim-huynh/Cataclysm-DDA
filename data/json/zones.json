@@ -112,6 +112,14 @@
     "description": "When fleeing, friendly NPCs will attempt to retreat toward this zone if it is within 60 tiles."
   },
   {
+    "id": "NPC_PREFERRED_SLEEP_ZONE",
+    "type": "LOOT_ZONE",
+    "name": "NPC Preferred Sleep Zone",
+    "can_be_personal": true,
+    "display_field": "fd_npc_preferred_sleep_zone",
+    "description": "NPCs will prefer to sleep here."
+  },
+  {
     "id": "ZONE_START_POINT",
     "type": "LOOT_ZONE",
     "name": "Start Point",

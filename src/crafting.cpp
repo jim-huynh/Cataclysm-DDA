@@ -2590,14 +2590,17 @@ item_location Character::create_in_progress_disassembly( item_location target )
     if( target->typeId() == itype_disassembly ) {
         new_disassembly = item( orig_item );
     } else {
+        item new_temp_item = item( orig_item );
+        new_temp_item.charges = activity.position;
+
         const recipe &r = recipe_dictionary::get_uncraft( target->typeId() );
-        new_disassembly = item( &r, activity.position, orig_item );
+        new_disassembly = item( &r, activity.position, new_temp_item );
 
         // Remove any batteries, ammo, contents and mods first
-        remove_ammo( orig_item, *this );
-        remove_radio_mod( orig_item, *this );
-        if( orig_item.is_container() ) {
-            orig_item.spill_contents( pos() );
+        remove_ammo( new_temp_item, *this );
+        remove_radio_mod( new_temp_item, *this );
+        if( new_temp_item.is_container() ) {
+            new_temp_item.spill_contents( pos() );
         }
         if( orig_item.count_by_charges() ) {
             //subtract selected number of rounds to disassemble
@@ -2715,7 +2718,10 @@ bool Character::disassemble( item_location target, bool interactive, bool disass
                 }
                 num_dis = std::min( num_dis, obj.charges );
             } else {
-                num_dis = obj.charges;
+                Character &player = get_player_character();
+                //if( player.id == this->id ) {
+                //    num_dis = obj.charges;
+                //}
             }
         }
         const int64_t craft_moves = r.time_to_craft_moves( *this, recipe_time_flag::ignore_proficiencies );
@@ -2828,7 +2834,10 @@ void Character::complete_disassemble( item_location target )
             }
             num_dis = std::min( num_dis, obj.charges );
         } else {
-            num_dis = obj.charges;
+            Character &player = get_player_character();
+            //if( player.id == this->id ) {
+            //    num_dis = obj.charges;
+            //}
         }
     }
     int64_t moves = next_recipe.time_to_craft_moves( *this, recipe_time_flag::ignore_proficiencies );

@@ -2974,6 +2974,14 @@ class Character : public Creature, public visitable
         units::energy consume_ups( units::energy qty, int radius = -1 );
 
         /**
+        * Consume UPS charges.
+        * Consume order: mech, Bionic UPS, UPS.
+        * @param qty amount of energy to consume. Is rounded down to kJ precision. Do not use negative values.
+        * @return Actual amount of energy consumed
+        */
+        units::energy consume_bionic_power( units::energy qty );
+
+        /**
         * Use charges in character inventory.
         * @param what itype_id of item using charges
         * @param qty Number of charges

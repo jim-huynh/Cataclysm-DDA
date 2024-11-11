@@ -76,6 +76,7 @@ static const zone_type_id zone_type_LOOT_UNSORTED( "LOOT_UNSORTED" );
 static const zone_type_id zone_type_LOOT_WOOD( "LOOT_WOOD" );
 static const zone_type_id zone_type_NO_AUTO_PICKUP( "NO_AUTO_PICKUP" );
 static const zone_type_id zone_type_NO_NPC_PICKUP( "NO_NPC_PICKUP" );
+static const zone_type_id zone_type_NPC_PREFERRED_SLEEP_ZONE( "NPC_PREFERRED_SLEEP_ZONE" );
 static const zone_type_id zone_type_SOURCE_FIREWOOD( "SOURCE_FIREWOOD" );
 static const zone_type_id zone_type_STRIP_CORPSES( "STRIP_CORPSES" );
 static const zone_type_id zone_type_UNLOAD_ALL( "UNLOAD_ALL" );
@@ -990,6 +991,25 @@ std::unordered_set<tripoint> zone_manager::get_point_set_loot( const tripoint_ab
         }
     }
 
+    return res;
+}
+
+std::unordered_set<tripoint> zone_manager::get_sleep_zones( const tripoint_abs_ms &where,
+        int radius, const faction_id &fac ) const
+{
+    std::unordered_set<tripoint> res;
+    map &here = get_map();
+    for( const tripoint &elem : here.points_in_radius( here.getlocal( where ), radius ) ) {
+        tripoint_abs_ms sdf = here.getglobal(elem);
+        const zone_data *zone = get_zone_at(sdf, true, fac );
+        if( zone == nullptr ) {
+            continue;
+        }
+        if( !has( zone_type_NPC_PREFERRED_SLEEP_ZONE, sdf) ) {
+            continue;
+        }
+        res.insert( elem );
+    }
     return res;
 }
 

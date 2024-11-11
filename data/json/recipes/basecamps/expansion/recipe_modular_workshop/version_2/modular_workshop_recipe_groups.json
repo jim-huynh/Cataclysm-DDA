@@ -86,6 +86,7 @@
     "building_type": "SMITH",
     "recipes": [
       { "id": "blade", "description": " Craft: Blade" },
+      { "id": "blade_from steel", "description": " Craft: Blade from steel" },
       { "id": "bearing", "description": " Craft: Bearings" },
       { "id": "caltrops", "description": " Craft: Caltrops" },
       { "id": "hand_drill", "description": " Craft: Hand Drill" },
